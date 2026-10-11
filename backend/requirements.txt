@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg[binary]
+pgvector
+pydantic-settings
+httpx
+anthropic
+pytest
+bleach

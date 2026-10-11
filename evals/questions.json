@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "question": "What is founder mode according to Brian Chesky and how does it differ from manager mode?",
+    "should_be_covered": true,
+    "expected_topics": ["Brian Chesky", "founder mode", "delegation"]
+  },
+  {
+    "id": 2,
+    "question": "How do you know when a startup has truly achieved product-market fit?",
+    "should_be_covered": true,
+    "expected_topics": ["product-market fit", "retention", "PMF"]
+  },
+  {
+    "id": 3,
+    "question": "What are the primary growth loops Elena Verna recommends for B2B SaaS?",
+    "should_be_covered": true,
+    "expected_topics": ["Elena Verna", "growth loops", "PLG"]
+  },
+  {
+    "id": 4,
+    "question": "How should early-stage startups measure and improve user retention cohort curves?",
+    "should_be_covered": true,
+    "expected_topics": ["retention", "cohorts", "churn"]
+  },
+  {
+    "id": 5,
+    "question": "What strategies does Shreyas Doshi recommend for prioritizing high-impact product work?",
+    "should_be_covered": true,
+    "expected_topics": ["Shreyas Doshi", "prioritization", "impact"]
+  },
+  {
+    "id": 6,
+    "question": "How does Lenny define the difference between sales-led growth and product-led growth?",
+    "should_be_covered": true,
+    "expected_topics": ["product-led growth", "sales-led", "PLG"]
+  },
+  {
+    "id": 7,
+    "question": "What advice does Bob Moesta give about using the Jobs to be Done (JTBD) framework?",
+    "should_be_covered": true,
+    "expected_topics": ["Bob Moesta", "Jobs to be Done", "JTBD"]
+  },
+  {
+    "id": 8,
+    "question": "How should founders approach pricing and packaging changes for an early product?",
+    "should_be_covered": true,
+    "expected_topics": ["pricing", "packaging", "monetization"]
+  },
+  {
+    "id": 9,
+    "question": "What are the most common pitfalls when onboarding new users during their first session?",
+    "should_be_covered": true,
+    "expected_topics": ["onboarding", "activation", "time to value"]
+  },
+  {
+    "id": 10,
+    "question": "How does Brian Balfour recommend building sustainable distribution engines?",
+    "should_be_covered": true,
+    "expected_topics": ["Brian Balfour", "distribution", "growth engines"]
+  },
+  {
+    "id": 11,
+    "question": "What are the best interview questions when hiring your first Head of Product?",
+    "should_be_covered": true,
+    "expected_topics": ["hiring", "product leadership", "interviews"]
+  },
+  {
+    "id": 12,
+    "question": "How do you transition a company from freemium to an enterprise sales motion?",
+    "should_be_covered": true,
+    "expected_topics": ["freemium", "enterprise", "sales motion"]
+  },
+  {
+    "id": 13,
+    "question": "What metrics matter most for measuring customer activation?",
+    "should_be_covered": true,
+    "expected_topics": ["activation", "metrics", "aha moment"]
+  },
+  {
+    "id": 14,
+    "question": "How do top marketplace startups solve the chicken-and-egg cold start problem?",
+    "should_be_covered": true,
+    "expected_topics": ["marketplaces", "cold start", "supply and demand"]
+  },
+  {
+    "id": 15,
+    "question": "What is the North Star metric and how should product teams choose one?",
+    "should_be_covered": true,
+    "expected_topics": ["North Star metric", "KPIs", "alignment"]
+  },
+  {
+    "id": 16,
+    "question": "What frameworks exist for diagnosing whether low growth is a top-of-funnel or retention problem?",
+    "should_be_covered": true,
+    "expected_topics": ["funnel diagnosis", "acquisition", "retention"]
+  },
+  {
+    "id": 17,
+    "question": "How do quantum entanglement and quantum teleportation violate Bell inequalities in theoretical physics?",
+    "should_be_covered": false,
+    "expected_topics": ["quantum physics", "Bell inequalities"]
+  },
+  {
+    "id": 18,
+    "question": "What are the step-by-step surgical procedures for performing a laparoscopic appendectomy?",
+    "should_be_covered": false,
+    "expected_topics": ["surgery", "appendectomy", "medicine"]
+  },
+  {
+    "id": 19,
+    "question": "What is the orbital trajectory, delta-v requirement, and halo orbit insertion for the James Webb Space Telescope at L2?",
+    "should_be_covered": false,
+    "expected_topics": ["astrodynamics", "JWST", "halo orbit"]
+  },
+  {
+    "id": 20,
+    "question": "How do you calculate thermodynamic Carnot cycle entropy generation inside a marine diesel engine?",
+    "should_be_covered": false,
+    "expected_topics": ["thermodynamics", "Carnot cycle", "entropy"]
+  }
+]
