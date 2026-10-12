@@ -29,6 +29,10 @@ export default function ChatMessage({
     }
   }, [message.content]);
 
+  if (!isUser && !message.content) {
+    return null;
+  }
+
   return (
     <div
       className={`py-5 px-6 flex gap-4 transition ${
@@ -136,7 +140,7 @@ export default function ChatMessage({
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-indigo-300">
-                          [{src.guest}, {src.episode_title}]
+                          [{src.id || idx + 1}] {src.guest} - {src.episode_title}
                         </span>
                         {src.similarity_score && (
                           <span className="text-[10px] text-slate-400">

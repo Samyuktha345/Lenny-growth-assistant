@@ -55,6 +55,7 @@ class MessageResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
+    stream: bool = Field(default=False)
 
 
 class ChatResponse(BaseModel):
@@ -64,6 +65,7 @@ class ChatResponse(BaseModel):
     artifacts: list[ArtifactResponse] = Field(default_factory=list)
     user_message: MessageResponse
     assistant_message: MessageResponse
+    timings: dict | None = None
 
 
 class ErrorDetail(BaseModel):

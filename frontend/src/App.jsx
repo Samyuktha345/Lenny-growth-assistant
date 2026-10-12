@@ -5,7 +5,7 @@ import {
   createSession,
   fetchSessions,
   fetchMessages,
-  sendChatMessage,
+  sendChatMessageStream,
   getStoredUser,
   setStoredUser,
 } from './api';
@@ -25,6 +25,8 @@ export default function App() {
   const [isArtifactOpen, setIsArtifactOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [lastFailedMessage, setLastFailedMessage] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -38,6 +40,21 @@ export default function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
+
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      setElapsedSeconds(0);
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [loading]);
 
   // Initial data loading when user is signed in
   useEffect(() => {
@@ -149,6 +166,7 @@ export default function App() {
     if (!textToSend.trim() || loading || !currentSessionId) return;
 
     setError(null);
+    setLastFailedMessage(null);
     setInputText('');
     setLoading(true);
 
@@ -160,29 +178,76 @@ export default function App() {
       content: textToSend,
       created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, tempUserMsg]);
+
+    const tempAssistantId = Date.now() + 1;
+    const tempAssistantMsg = {
+      id: tempAssistantId,
+      session_id: currentSessionId,
+      role: 'assistant',
+      content: '',
+      sources: [],
+      artifacts: [],
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, tempUserMsg, tempAssistantMsg]);
 
     try {
-      const res = await sendChatMessage(currentSessionId, textToSend);
-
-      // Update messages with actual server records
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => m.id !== tempUserMsg.id);
-        return [...filtered, res.user_message, res.assistant_message];
+      await sendChatMessageStream(currentSessionId, textToSend, {
+        onToken: (token, accumulated) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempAssistantId ? { ...m, content: accumulated } : m
+            )
+          );
+        },
+        onSources: (sources) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempAssistantId ? { ...m, sources } : m
+            )
+          );
+        },
+        onArtifact: (art) => {
+          setActiveArtifact(art);
+          setIsArtifactOpen(true);
+        },
+        onDone: ({ reply, sources, artifacts }) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempAssistantId
+                ? {
+                    ...m,
+                    content: reply || m.content,
+                    sources: sources && sources.length > 0 ? sources : m.sources,
+                    artifacts: artifacts && artifacts.length > 0 ? artifacts : m.artifacts,
+                  }
+                : m
+            )
+          );
+          if (artifacts && artifacts.length > 0) {
+            setActiveArtifact(artifacts[0]);
+            setIsArtifactOpen(true);
+          }
+          setLoading(false);
+        },
+        onError: (err) => {
+          setLastFailedMessage(textToSend);
+          if (err.status === 401) {
+            handleLogout();
+          } else {
+            setError(err.message || 'Unable to retrieve answer.');
+          }
+          setLoading(false);
+        },
       });
-
-      // If response includes artifacts, automatically open them
-      if (res.artifacts && res.artifacts.length > 0) {
-        setActiveArtifact(res.artifacts[0]);
-        setIsArtifactOpen(true);
-      }
     } catch (err) {
+      setLastFailedMessage(textToSend);
       if (err.status === 401) {
         handleLogout();
       } else {
-        setError(err.message || 'Failed to send message. Please ensure the backend is running.');
+        setError(err.message || 'Unable to retrieve answer.');
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -239,12 +304,27 @@ export default function App() {
               <AlertCircle size={15} className="text-rose-400 shrink-0" />
               <span>{error}</span>
             </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-rose-400 hover:text-rose-200 font-bold px-2 py-0.5"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              {lastFailedMessage && (
+                <button
+                  onClick={() => {
+                    const msg = lastFailedMessage;
+                    setError(null);
+                    setLastFailedMessage(null);
+                    handleSend(msg);
+                  }}
+                  className="bg-rose-800 hover:bg-rose-700 text-white font-medium px-2.5 py-1 rounded text-xs transition"
+                >
+                  Retry
+                </button>
+              )}
+              <button
+                onClick={() => setError(null)}
+                className="text-rose-400 hover:text-rose-200 font-bold px-2 py-0.5"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         )}
 
@@ -301,7 +381,7 @@ export default function App() {
                     <Loader2 size={16} className="animate-spin" />
                   </div>
                   <div className="flex items-center gap-2 text-xs text-slate-400 pt-1.5">
-                    <span>Searching transcripts & synthesizing answer...</span>
+                    <span>Thinking... ({elapsedSeconds}s)</span>
                   </div>
                 </div>
               )}

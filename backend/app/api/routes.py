@@ -1,10 +1,14 @@
 from datetime import datetime
+import json
+import time
 import uuid
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.agent.agent import run_agent
+from app.agent.agent import run_agent, run_agent_stream
 from app.agent.sanitizer import sanitize_html
+from app.agent.timing import StageTimings
 from app.api.schemas import (
     ArtifactResponse,
     ChatRequest,
@@ -137,13 +141,14 @@ def get_session_messages(
     return list(session.messages)
 
 
-@router.post("/sessions/{session_id}/chat", response_model=ChatResponse)
-def chat_session(
+@router.post("/sessions/{session_id}/chat")
+async def chat_session(
+    request: Request,
     session_id: str,
     payload: ChatRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> ChatResponse:
+):
     session = db.get(ChatSession, session_id)
     if not session or session.user_id != current_user.id:
         raise HTTPException(
@@ -151,6 +156,13 @@ def chat_session(
             detail=f"Session with ID '{session_id}' not found.",
         )
 
+    want_stream = (
+        payload.stream
+        or request.headers.get("accept") == "text/event-stream"
+        or request.query_params.get("stream") == "true"
+    )
+
+    t0_db = time.perf_counter()
     user_msg = ChatMessage(
         session_id=session.id,
         role="user",
@@ -158,11 +170,83 @@ def chat_session(
     )
     db.add(user_msg)
     db.commit()
+    db.refresh(user_msg)
+    db_writes_ms = (time.perf_counter() - t0_db) * 1000
 
+    if want_stream:
+        async def sse_generator():
+            from app.db.session import SessionLocal
+            stream_db = SessionLocal()
+            try:
+                full_reply = ""
+                final_sources = []
+                final_artifacts = []
+                for event in run_agent_stream(session.id, payload.message, db=stream_db):
+                    ev_type = event.get("event")
+                    ev_data = event.get("data", {})
+                    if ev_type == "sources":
+                        final_sources = ev_data.get("sources", [])
+                    elif ev_type == "token":
+                        full_reply += ev_data.get("token", "")
+                    elif ev_type == "done":
+                        final_sources = ev_data.get("sources", final_sources)
+                        final_artifacts = ev_data.get("artifacts", [])
+                        if not full_reply:
+                            full_reply = ev_data.get("reply", "")
+
+                    yield f"data: {json.dumps({'type': ev_type, **ev_data})}\n\n"
+
+                # Persist assistant message and artifacts
+                asst_msg = ChatMessage(
+                    session_id=session.id,
+                    role="assistant",
+                    content=full_reply,
+                    sources=final_sources,
+                )
+                stream_db.add(asst_msg)
+                stream_db.flush()
+
+                for art in final_artifacts:
+                    art_content = art.get("content", "")
+                    if art.get("type") == "html":
+                        art_content = sanitize_html(art_content)
+                    db_art = Artifact(
+                        message_id=asst_msg.id,
+                        type=art.get("type", "markdown"),
+                        title=art.get("title", "Artifact"),
+                        content=art_content,
+                    )
+                    stream_db.add(db_art)
+
+                stream_db.commit()
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            finally:
+                stream_db.close()
+
+        origin = request.headers.get("origin")
+        cors_headers = {}
+        if origin:
+            cors_headers["Access-Control-Allow-Origin"] = origin
+            cors_headers["Access-Control-Allow-Credentials"] = "true"
+
+        return StreamingResponse(
+            sse_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+                **cors_headers,
+            },
+        )
+
+    timings = StageTimings()
     reply, sources, artifacts_data = run_agent(
-        session.id, payload.message, db=db
+        session.id, payload.message, db=db, timings=timings
     )
 
+    t0_db2 = time.perf_counter()
     assistant_msg = ChatMessage(
         session_id=session.id,
         role="assistant",
@@ -187,6 +271,18 @@ def chat_session(
     db.commit()
     db.refresh(user_msg)
     db.refresh(assistant_msg)
+    db_writes_ms += (time.perf_counter() - t0_db2) * 1000
+
+    timings.db_writes_ms = db_writes_ms
+    timings.total_pipeline_ms = (
+        timings.query_rewrite_ms
+        + timings.query_embedding_ms
+        + timings.pgvector_search_ms
+        + timings.prompt_build_ms
+        + timings.llm_total_ms
+        + timings.db_writes_ms
+    )
+    timings.print_table()
 
     return ChatResponse(
         reply=reply,
@@ -197,6 +293,7 @@ def chat_session(
         ],
         user_message=MessageResponse.model_validate(user_msg),
         assistant_message=MessageResponse.model_validate(assistant_msg),
+        timings=timings.to_dict(),
     )
 
 

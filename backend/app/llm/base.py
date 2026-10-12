@@ -14,6 +14,10 @@ class ToolCall:
 class LLMResponse:
     content: str = ""
     tool_calls: list[ToolCall] = field(default_factory=list)
+    prompt_tokens: int = 0
+    output_tokens: int = 0
+    ttft_ms: float = 0.0
+    total_ms: float = 0.0
 
 
 class LLMClient(ABC):
@@ -27,3 +31,15 @@ class LLMClient(ABC):
         tools: list[dict[str, Any]] | None = None,
     ) -> LLMResponse:
         pass
+
+    def chat_stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ):
+        res = self.chat(messages, tools=tools)
+        if res.content:
+            yield {"token": res.content, "done": True}
+        else:
+            yield {"token": "", "done": True}
+

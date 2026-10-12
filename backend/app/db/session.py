@@ -29,5 +29,10 @@ def init_db() -> None:
                     "ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE;"
                 )
             )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_chunks_embedding_hnsw ON chunks USING hnsw (embedding vector_cosine_ops);"
+                )
+            )
         except Exception:
             pass

@@ -14,7 +14,9 @@ from app.db.session import SessionLocal
 from app.llm.base import LLMClient, LLMResponse
 
 
-CITATION_PATTERN = re.compile(r"\[[\w\s\.\-']+,[\w\s\.\-']+\]")
+CITATION_PATTERN = re.compile(
+    r"\[\d+\]|\[[\w\s\.\-']+,[\w\s\.\-']+\]|\[[\w\s\.\-']+\s*-\s*[\w\s\.\-']+\]"
+)
 
 
 class MockEvalLLM(LLMClient):
@@ -25,13 +27,21 @@ class MockEvalLLM(LLMClient):
         user_msg = messages[-1].get("content", "")
         # If passages exist, cite them
         if "Retrieved Transcript Passages:" in user_msg:
-            # Extract first guest and episode
-            match = re.search(r"\[([\w\s\.\-']+),\s*([\w\s\.\-']+)\]", user_msg)
-            if match:
-                guest, ep = match.group(1), match.group(2)
-                return LLMResponse(
-                    content=f"According to [{guest}, {ep}], founders and product leaders must focus on high-retention playbooks and customer alignment."
+            m1 = re.search(r"\[\d+\]\s*([\w\s\.\-']+?)\s*-\s*([^\n\r]+)", user_msg)
+            m2 = re.search(r"\[([\w\s\.\-']+),\s*([\w\s\.\-']+)\]", user_msg)
+            if m1:
+                guest, ep = m1.group(1).strip(), m1.group(2).strip()
+            elif m2:
+                guest, ep = m2.group(1).strip(), m2.group(2).strip()
+            else:
+                guest, ep = "Lenny", "Strategy"
+
+            return LLMResponse(
+                content=(
+                    f"According to [{guest}, {ep}], founders and product leaders must focus on high-retention playbooks. [1]\n\n"
+                    f"### Sources\n[1] {guest} - {ep}"
                 )
+            )
         return LLMResponse(content=NOT_COVERED_REPLY)
 
 
